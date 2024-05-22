@@ -39,9 +39,31 @@ class PCA(object):
             exvar (float): explained variance of the kept dimensions (in percentage, i.e., in [0,100])
         """
         ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
+
+        # Compute the mean of the data.
+        self.mean = np.mean(training_data, axis=0)
+
+        # Center the data with the mean.
+        X_tilde = training_data - self.mean
+
+        # Create the covariance matrix.
+        N = training_data.shape[0]
+        C = (X_tilde.T @ X_tilde) / N
+
+        # Compute the eigenvectors and eigenvalues.
+        eigvals, eigvecs = np.linalg.eigh(C)
+
+        # Sort the eigenvalues and corresponding eigenvectors in decreasing order.
+        eigvals = eigvals[::-1]
+        eigvecs = eigvecs[:, ::-1]
+
+        # Choose the top d eigenvalues and corresponding eigenvectors.
+        top_eigvals = eigvals[:self.d]
+        self.W = eigvecs[:, :self.d]
+
+        # Compute the explained variance.
+        exvar = np.sum(top_eigvals) / np.sum(eigvals) * 100
+
         ##
         return exvar
 
@@ -56,7 +78,13 @@ class PCA(object):
         """
         ##
         ###
-        #### WRITE YOUR CODE HERE!
+        
+        # Center the data with the mean.
+        X_tilde = data - self.mean
+
+        # Reduce the dimension of the data.
+        data_reduced = X_tilde @ self.W        
+        
         ###
         ##
         return data_reduced
