@@ -83,11 +83,23 @@ class CNN(nn.Module):
             n_classes (int): number of classes to predict
         """
         super().__init__()
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        self.model_CNN = nn.Sequential(
+            nn.Conv2d(input_channels, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(32 * 14 * 14, 128),
+            nn.ReLU(),
+            nn.Linear(128, n_classes),
+            nn.ReLU(),
+            nn.Linear(n_classes, n_classes),
+            nn.Softmax(dim=1),
+        )
+
 
     def forward(self, x):
         """
@@ -99,12 +111,61 @@ class CNN(nn.Module):
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        x = self.model_CNN(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        preds: torch.Tensor = x
         return preds
+
+
+# Helper classes for the ViT
+class PatchEmbedding(nn.Module):
+    def __init__(self, chw, n_patches, hidden_d):
+        super().__init__()
+        self.ch, self.h, self.w = chw
+        self.patch_size = self.h // int(n_patches**0.5)
+        self.n_patches = (self.h // self.patch_size) * (self.w // self.patch_size)
+        self.linear = nn.Linear(self.ch * self.patch_size * self.patch_size, hidden_d)
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        patches = x.unfold(2, self.patch_size, self.patch_size).unfold(
+            3, self.patch_size, self.patch_size
+        )
+        patches = patches.contiguous().view(B, C, self.n_patches, -1)
+        patches = patches.permute(0, 2, 1, 3).flatten(2)
+        embeddings = self.linear(patches)
+        return embeddings
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, n_patches, hidden_d):
+        super().__init__()
+        self.pos_embedding = nn.Parameter(torch.randn(1, n_patches, hidden_d))
+
+    def forward(self, x):
+        return x + self.pos_embedding
+
+
+class TransformerBlock(nn.Module):
+    def __init__(self, hidden_d, n_heads):
+        super().__init__()
+        self.attention = nn.MultiheadAttention(hidden_d, n_heads)
+        self.norm1 = nn.LayerNorm(hidden_d)
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden_d, 4 * hidden_d),
+            nn.GELU(),
+            nn.Linear(4 * hidden_d, hidden_d),
+        )
+        self.norm2 = nn.LayerNorm(hidden_d)
+
+    def forward(self, x):
+        x = x + self.attention(x, x, x)[0]
+        x = self.norm1(x)
+        x = x + self.mlp(x)
+        x = self.norm2(x)
+        return x
+
 
 
 class MyViT(nn.Module):
@@ -118,11 +179,12 @@ class MyViT(nn.Module):
         
         """
         super().__init__()
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        self.patch_embedding = PatchEmbedding(chw, n_patches, hidden_d)
+        self.positional_encoding = PositionalEncoding(n_patches, hidden_d)
+        self.transformer_blocks = nn.Sequential(
+            *[TransformerBlock(hidden_d, n_heads) for _ in range(n_blocks)]
+        )
+        self.fc = nn.Linear(hidden_d, out_d)
 
     def forward(self, x):
         """
@@ -134,11 +196,11 @@ class MyViT(nn.Module):
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        x = self.patch_embedding(x)
+        x = self.positional_encoding(x)
+        x = self.transformer_blocks(x)
+        x = x.mean(dim=1)  # Global average pooling
+        preds = self.fc(x)
         return preds
 
 
