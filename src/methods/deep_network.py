@@ -92,12 +92,9 @@ class CNN(nn.Module):
             nn.MaxPool2d(kernel_size=2),
         )
         self.classifier = nn.Sequential(
-            nn.Linear(32 * 14 * 14, 128),
+            nn.Linear(32 * 7 * 7, 128),  # ZAC 27.05 : corrected dimensions 
             nn.ReLU(),
             nn.Linear(128, n_classes),
-            nn.ReLU(),
-            nn.Linear(n_classes, n_classes),
-            nn.Softmax(dim=1),
         )
 
 
@@ -114,8 +111,9 @@ class CNN(nn.Module):
         x = self.model_CNN(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
-        preds: torch.Tensor = x
-        return preds
+        #preds: torch.Tensor = x
+        #return preds
+        return x
 
 
 # Helper classes for the ViT
@@ -178,9 +176,18 @@ class MyViT(nn.Module):
         Initialize the network.
         
         """
-        super().__init__()
+        '''super().__init__()
         self.patch_embedding = PatchEmbedding(chw, n_patches, hidden_d)
         self.positional_encoding = PositionalEncoding(n_patches, hidden_d)
+        self.transformer_blocks = nn.Sequential(
+            *[TransformerBlock(hidden_d, n_heads) for _ in range(n_blocks)]
+        )
+        self.fc = nn.Linear(hidden_d, out_d)'''
+
+        super().__init__()
+        self.patch_embedding = PatchEmbedding(chw, n_patches, hidden_d)
+        self.n_patches = self.patch_embedding.n_patches
+        self.positional_encoding = PositionalEncoding(self.n_patches, hidden_d)
         self.transformer_blocks = nn.Sequential(
             *[TransformerBlock(hidden_d, n_heads) for _ in range(n_blocks)]
         )

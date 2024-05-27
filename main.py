@@ -38,17 +38,17 @@ def main(args):
     
 
     print(
-        f"[INFO] Data loaded: xtrain.shape = {xtrain.shape} - ytrain.shape = {ytrain.shape}")
+        f"[INFO] Data loaded: xtrain.shape = {xtrain.shape} - ytrain.shape = {ytrain.shape}\n")
     #print(
         #f"[INFO] Data loaded: xtest.shape = {xtest.shape} - ytest.shape = {ytest.shape}")
     print(
-        f"[INFO] Data composition: train = {len(xtrain)/data_size:.2f} - test = {len(xtest)/data_size:.2f}")
+        f"[INFO] Data composition: train = {len(xtrain)/data_size:.2f} - test = {len(xtest)/data_size:.2f}\n")
     
 
     ## ZAC
     if args.nn_type == 'cnn':
-        # Reshape to [N, C, H, W] format
-        xtrain = xtrain.reshape(-1, 1, 28, 28)  # Assuming grayscale images
+        #reshape to [N, C, H, W] format
+        xtrain = xtrain.reshape(-1, 1, 28, 28) 
         xtest = xtest.reshape(-1, 1, 28, 28)
 
    
@@ -65,7 +65,7 @@ def main(args):
 
     # Dimensionality reduction (MS2)
     if args.use_pca:
-        print("Using PCA")
+        print("\n[INFO]: Using PCA...\n")
         pca_obj = PCA(d=args.pca_d)
         ### WRITE YOUR CODE HERE: use the PCA object to reduce the dimensionality of the data
         pca_obj.find_principal_components(xtrain)
