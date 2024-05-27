@@ -111,8 +111,7 @@ class CNN(nn.Module):
         x = self.model_CNN(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
-        #preds: torch.Tensor = x
-        #return preds
+       
         return x
 
 
@@ -184,6 +183,7 @@ class MyViT(nn.Module):
         )
         self.fc = nn.Linear(hidden_d, out_d)'''
 
+        # Changements ZAC 27.05
         super().__init__()
         self.patch_embedding = PatchEmbedding(chw, n_patches, hidden_d)
         self.n_patches = self.patch_embedding.n_patches
