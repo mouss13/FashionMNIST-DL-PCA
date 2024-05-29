@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 ## MS2
 
@@ -39,32 +40,24 @@ class PCA(object):
             exvar (float): explained variance of the kept dimensions (in percentage, i.e., in [0,100])
         """
         ##
-
-        # Compute the mean of the data.
+        ###
+        #### WRITE YOUR CODE HERE!
+        ###
+        ##
         self.mean = np.mean(training_data, axis=0)
-
-        # Center the data with the mean.
         X_tilde = training_data - self.mean
+        C = np.cov(X_tilde.T)
 
-        # Create the covariance matrix.
-        N = training_data.shape[0]
-        C = (X_tilde.T @ X_tilde) / N
-
-        # Compute the eigenvectors and eigenvalues.
         eigvals, eigvecs = np.linalg.eigh(C)
 
-        # Sort the eigenvalues and corresponding eigenvectors in decreasing order.
-        eigvals = eigvals[::-1]
-        eigvecs = eigvecs[:, ::-1]
+        sorted_idx = np.argsort(eigvals[::-1])
+        eigvals = eigvals[sorted_idx]
+        eigvecs = eigvecs[:, sorted_idx]
 
-        # Choose the top d eigenvalues and corresponding eigenvectors.
-        top_eigvals = eigvals[:self.d]
         self.W = eigvecs[:, :self.d]
 
-        # Compute the explained variance.
-        exvar = np.sum(top_eigvals) / np.sum(eigvals) * 100
+        exvar = (np.sum(eigvals[:self.d]) / np.sum(eigvals)) * 100
 
-        ##
         return exvar
 
     def reduce_dimension(self, data):
@@ -78,15 +71,11 @@ class PCA(object):
         """
         ##
         ###
-        
-        # Center the data with the mean.
-        X_tilde = data - self.mean
-
-        # Reduce the dimension of the data.
-        data_reduced = X_tilde @ self.W        
-        
+        #### WRITE YOUR CODE HERE!
         ###
         ##
+
+        centered_data = data - self.mean
+        data_reduced = np.dot(centered_data, self.W)
         return data_reduced
         
-
