@@ -93,6 +93,10 @@ def main(args):
         acc_test = accuracy_fn(preds, ytest)
         macrof1_test = macrof1_fn(preds, ytest)
         print(f"Validation set: accuracy = {acc_test:.3f}% - F1-score = {macrof1_test:.6f}")
+    
+    # Save predictions
+    np.save("predictions", preds.numpy())
+
 
     # Optional additional outputs or visualizations can be added here
 
