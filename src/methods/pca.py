@@ -24,7 +24,7 @@ class PCA(object):
         self.mean = None 
         # the principal components (will be computed from the training data and saved to this variable)
         self.W = None
-
+    
     def find_principal_components(self, training_data):
         """
         Finds the principal components of the training data and returns the explained variance in percentage.

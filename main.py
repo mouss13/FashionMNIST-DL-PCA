@@ -1,12 +1,11 @@
 import argparse
-
 import numpy as np
+import torch
 import torch.nn.functional as F
-
 from torchinfo import summary
 from src.data import load_data
 from src.methods.pca import PCA
-from src.methods.deep_network import MLP, CNN, Trainer, MyViT
+from src.methods.deep_network import MLP, CNN, Trainer
 from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, get_n_classes
 
 
@@ -19,6 +18,8 @@ def main(args):
         args (Namespace): arguments that were parsed from the command line (see at the end 
                           of this file). Their value can be accessed as "args.argument".
     """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     ## 1. First, we load our data and flatten the images into vectors
     xtrain, xtest, ytrain = load_data(args.data)
     xtrain = xtrain.reshape(xtrain.shape[0], -1)
@@ -35,27 +36,16 @@ def main(args):
     xtest = normalize_fn(xtest, means, stds)
 
     # Make a validation set
+    if not args.test: 
+        num_val_samples = int(0.1 * xtrain.shape[0])
+        xval = xtrain[:num_val_samples]
+        yval = ytrain[:num_val_samples]
+        xtrain = xtrain[num_val_samples:]
+        ytrain = ytrain[num_val_samples:]
     
 
-    heeheehaha = """
-  ———————————No bitches?———————————
-'⠀⣞⢽⢪⢣⢣⢣⢫⡺⡵⣝⡮⣗⢷⢽⢽⢽⣮⡷⡽⣜⣜⢮⢺⣜⢷⢽⢝⡽⣝
-⠸⡸⠜⠕⠕⠁⢁⢇⢏⢽⢺⣪⡳⡝⣎⣏⢯⢞⡿⣟⣷⣳⢯⡷⣽⢽⢯⣳⣫⠇
-⠀⠀⢀⢀⢄⢬⢪⡪⡎⣆⡈⠚⠜⠕⠇⠗⠝⢕⢯⢫⣞⣯⣿⣻⡽⣏⢗⣗⠏⠀
-⠀⠪⡪⡪⣪⢪⢺⢸⢢⢓⢆⢤⢀⠀⠀⠀⠀⠈⢊⢞⡾⣿⡯⣏⢮⠷⠁⠀⠀
-⠀⠀⠀⠈⠊⠆⡃⠕⢕⢇⢇⢇⢇⢇⢏⢎⢎⢆⢄⠀⢑⣽⣿⢝⠲⠉⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⡿⠂⠠⠀⡇⢇⠕⢈⣀⠀⠁⠡⠣⡣⡫⣂⣿⠯⢪⠰⠂⠀⠀⠀⠀
-⠀⠀⠀⠀⡦⡙⡂⢀⢤⢣⠣⡈⣾⡃⠠⠄⠀⡄⢱⣌⣶⢏⢊⠂⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⢝⡲⣜⡮⡏⢎⢌⢂⠙⠢⠐⢀⢘⢵⣽⣿⡿⠁⠁⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠨⣺⡺⡕⡕⡱⡑⡆⡕⡅⡕⡜⡼⢽⡻⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⣼⣳⣫⣾⣵⣗⡵⡱⡡⢣⢑⢕⢜⢕⡝⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⣴⣿⣾⣿⣿⣿⡿⡽⡑⢌⠪⡢⡣⣣⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⡟⡾⣿⢿⢿⢵⣽⣾⣼⣘⢸⢸⣞⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠁⠇⠡⠩⡫⢿⣝⡻⡮⣒⢽⠋⠀
-—————————————————————————————
-    """
-    print(heeheehaha)
 
+    
     print(
         f"\n[INFO] Data loaded: xtrain.shape = {xtrain.shape} - ytrain.shape = {ytrain.shape}\n")
     #print(
@@ -71,13 +61,14 @@ def main(args):
         xtest = xtest.reshape(-1, 1, 28, 28)
 
    
-    if not args.test:
+    '''if not args.test:
     ### WRITE YOUR CODE HERE
         num_val_samples = int(0.1 * xtrain.shape[0])
         xval = xtrain[:num_val_samples]
         yval = ytrain[:num_val_samples]
         xtrain = xtrain[num_val_samples:]
-        ytrain = ytrain[num_val_samples:]
+        ytrain = ytrain[num_val_samples:]'''
+    
 
     ### WRITE YOUR CODE HERE to do any other data processing
 
@@ -102,6 +93,7 @@ def main(args):
         
     # Note: you might need to reshape the data depending on the network you use!
     n_classes = get_n_classes(ytrain)
+    model = None
     if args.nn_type == "mlp":
        nb_hidden = 10
 
@@ -115,6 +107,7 @@ def main(args):
             for i in range(len(tab)): # iteration over activation functions
                 for j in range(3 ,nb_hidden): # iteration over hidden layers
                     model = MLP(xtrain.shape[1], n_classes, j ,tab[i]) 
+                    summary(model)
                     method_obj = Trainer(
                                 model, lr=args.lr, epochs=args.max_iters, batch_size=args.nn_batch_size)
                         # Model prediction
@@ -125,7 +118,7 @@ def main(args):
 
                     preds_val = method_obj.predict(xtest)
                     val_acc[index] = accuracy_fn(preds_val, yval)
-
+            
             bestModel = np.argmax(val_acc)
             bestActivation = tab[bestModel / len(tab)]
             bestHidden = bestModel % len(tab)
@@ -137,10 +130,14 @@ def main(args):
 
     elif args.nn_type == "cnn":
         model = CNN(input_channels=1, n_classes=get_n_classes(ytrain))  # CNN for grayscale image
+        summary(model)
     elif args.nn_type == "transformer":
         model = MyViT(chw=xtrain.shape[1], n_patches=100, n_blocks=6, hidden_d=256, n_heads=8, out_d=n_classes)
+        summary(model)
+    else:
+        raise ValueError(f"Unknown network type: {args.nn_type}")
 
-    summary(model)
+    #summary(model)
     
     # Trainer object
     method_obj = Trainer(model, lr=args.lr, epochs=args.max_iters, batch_size=args.nn_batch_size)
@@ -157,6 +154,7 @@ def main(args):
     ## Report results: performance on train and valid/test sets
     acc = accuracy_fn(preds_train, ytrain)
     macrof1 = macrof1_fn(preds_train, ytrain)
+    print("\n=====================================================\n")
     print(f"\nTrain set: accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
 
 
@@ -168,7 +166,13 @@ def main(args):
 
 
     ### WRITE YOUR CODE HERE if you want to add other outputs, visualization, etc.
+    # Ensure predictions shape is (N,)
+    preds = preds.reshape(-1)
+    print(f"\nPredictions shape: {preds.shape}\n")
 
+    # Save predictions for submission
+    np.save("predictions.npy", preds)
+    print("\n=====================================================\n")
 
 
 if __name__ == '__main__':
