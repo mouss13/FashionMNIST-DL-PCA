@@ -25,6 +25,7 @@ class PCA(object):
         self.mean = None 
         # the principal components (will be computed from the training data and saved to this variable)
         self.W = None
+        self.explained_variance_ratio_ = None
     
     def find_principal_components(self, training_data):
         """
@@ -57,6 +58,9 @@ class PCA(object):
         self.W = eigvecs[:, :self.d]
 
         exvar = (np.sum(eigvals[:self.d]) / np.sum(eigvals)) * 100
+        
+        # calculate and store the explained variance ratio
+        self.explained_variance_ratio_ = eigvals[:self.d] / np.sum(eigvals)
 
         return exvar
 
