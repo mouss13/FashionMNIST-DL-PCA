@@ -85,7 +85,8 @@ def tune_pca(xtrain, xtest, ytrain, ytest, device):
 def tune_cnn(xtrain, xtest, ytrain, ytest, device):
     print("[INFO] Tuning CNN hyperparameters...")
     filter_combinations = [(2, 4, 8), (4, 8, 16), (5, 10, 15), 
-                           (10, 20, 30), (16, 32, 64), (32, 64, 128)]
+                           (10, 20, 30), (16, 32, 64), (32, 64, 128),
+                           (64, 128, 256), (128, 256, 512)]
     accuracies = []
     best_acc = 0
     best_filters = None
@@ -118,7 +119,8 @@ def tune_cnn(xtrain, xtest, ytrain, ytest, device):
     plt.figure(figsize=(10, 5))
     plt.plot(range(len(filter_combinations)), accuracies, label='Accuracy')
     plt.xticks(range(len(filter_combinations)), labels=[
-        '(2,4,8)', '(4,8,16)', '(5,10,15)', '(10, 20, 30)', '(16,32,64)', '(32,64,128)'])
+        '(2,4,8)', '(4,8,16)', '(5,10,15)', '(10, 20, 30)', 
+        '(16,32,64)', '(32,64,128)', '(64,128,256)', '(128,256,512)'])
     plt.xlabel('Filter Combinations')
     plt.ylabel('Accuracy')
     plt.title('CNN Accuracy by Filter Combinations')
