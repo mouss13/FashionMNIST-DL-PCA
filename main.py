@@ -15,7 +15,6 @@ from src.methods.deep_network import MLP, CNN, Trainer, MyViT
 from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, get_n_classes
 
 
-
 def split_train_test(x, y, test_size=0.2, random_seed=None):
     """
     Split the data into training and testing sets.
@@ -29,6 +28,9 @@ def split_train_test(x, y, test_size=0.2, random_seed=None):
     train_indices = indices[test_size:]
     xtrain, xtest = x[train_indices], x[test_indices]
     ytrain, ytest = y[train_indices], y[test_indices]
+    print(f"[INFO] Data loaded: xtest.shape = {xtest.shape} - ytest.shape = {ytest.shape}")
+    print(f"[INFO] Data split: xtrain.shape = {xtrain.shape} - ytrain.shape = {ytrain.shape}")
+    print(f"[INFO] Data split percentages: {len(xtrain) / (len(xtrain) + len(xtest)):.2f} [train] - {len(xtest) / (len(xtrain) + len(xtest)):.2f} [test]")
     return xtrain, xtest, ytrain, ytest
 
 
@@ -93,20 +95,31 @@ def tune_cnn(xtrain, xtest, ytrain, ytest, device):
     filter_combinations = [(2, 4, 8), (4, 8, 16), (5, 10, 15), 
                            (10, 20, 30), (16, 32, 64), (32, 64, 128),
                            (64, 128, 256), (128, 256, 512)]
+    lr_options = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3]
+    iterations_options = [10, 20, 50]
+    
     accuracies = []
     f1_scores = []
     best_acc = 0
     best_f1 = 0
     best_filters = None
+    best_lr = None
+    best_iters = None
+    iteration_nb = 0
 
     t1 = time.time()
 
-    for filters in filter_combinations:
-        print(f"Training with filters: {filters}")
+    all_combinations = [(filters, lr, iters) for filters in filter_combinations for lr in lr_options for iters in iterations_options]
+    sampled_combinations = random.sample(all_combinations, 20)  # Sample 20 combinations
+
+    for filters, lr, iters in sampled_combinations:
+        iteration_nb += 1
+        print(f"Iteration #", iteration_nb)
+        print(f"Training with filters={filters}, lr={lr}, iters={iters}")
         model = CNN(1, get_n_classes(ytrain), conv_layers=filters).to(device)
         summary(model)
 
-        trainer = Trainer(model, lr=1e-3, epochs=50, batch_size=64, device=device)
+        trainer = Trainer(model, lr=lr, epochs=iters, batch_size=64, device=device)
 
         s1 = time.time()
         trainer.fit(xtrain, ytrain)
@@ -120,24 +133,27 @@ def tune_cnn(xtrain, xtest, ytrain, ytest, device):
         accuracies.append(acc)
         f1_scores.append(f1)
 
-        if acc > best_acc or (acc == best_acc and f1 > best_f1): # resolve ties by F1-score, but prioritize accuracy
+        print(f"Accuracy: {acc:.3f}% - F1-score: {f1:.6f}")
+
+        if acc > best_acc or (acc == best_acc and f1 > best_f1):  # Resolve ties by F1-score, but prioritize accuracy
             best_acc = acc
             best_f1 = f1
             best_filters = filters
+            best_lr = lr
+            best_iters = iters
 
     t2 = time.time()
     print(f"Total time taken for tuning: {(t2 - t1) // 60} min, {(t2 - t1) % 60} sec")
-    print(f"Best filter combination: {best_filters} with accuracy: {best_acc:.3f}% and F1-score: {best_f1:.6f}")
+    print(f"Best filter combination: {best_filters} with lr: {best_lr} and max_iters: {best_iters} and accuracy: {best_acc:.3f}% and F1-score: {best_f1:.6f}")
 
     plt.figure(figsize=(10, 5))
-    plt.plot(range(len(filter_combinations)), accuracies, label='Accuracy')
+    plt.plot(range(len(sampled_combinations)), accuracies, label='Accuracy')
     #plt.plot(range(len(filter_combinations)), f1_scores, label='F1-score')
-    plt.xticks(range(len(filter_combinations)), labels=[
-        '(2,4,8)', '(4,8,16)', '(5,10,15)', '(10, 20, 30)', 
-        '(16,32,64)', '(32,64,128)', '(64,128,256)', '(128,256,512)'])
-    plt.xlabel('Filter Combinations')
+    plt.xticks(range(len(sampled_combinations)), labels=[
+        f'{filters}-{lr}-{iters}' for filters, lr, iters in sampled_combinations], rotation=90)
+    plt.xlabel('Filter-LR-Iters Combinations')
     plt.ylabel('Metrics')
-    plt.title('CNN Accuracy by Filter Combinations')
+    plt.title('CNN Accuracy by Filter-LR-Iters Combinations')
     plt.legend()
     plt.grid(True)
     plt.savefig('cnn_tuning.png')
@@ -145,21 +161,20 @@ def tune_cnn(xtrain, xtest, ytrain, ytest, device):
 
 
 def tune_transformer(xtrain, xtest, ytrain, ytest, device):
+    print("[INFO] Tuning Transformer hyperparameters...")
     n_blocks_options = [2, 4, 6, 8, 10]
     hidden_d_options = [128, 256, 512, 768, 1024]
     n_heads_options = [2, 4, 6, 8]
     lr_options = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3]
+    iteration = 0
 
-    # Generate all possible combinations manually
     all_combinations = [(n_blocks, hidden_d, n_heads, lr) 
                         for n_blocks in n_blocks_options 
                         for hidden_d in hidden_d_options 
                         for n_heads in n_heads_options 
                         for lr in lr_options]
     
-    # Randomly select 50 combinations
-    sampled_combinations = random.sample(all_combinations, 50)
-
+    sampled_combinations = random.sample(all_combinations, 25) # try 25 random sample combinations for tuning 
     best_acc = 0
     best_params = {}
     results = []
@@ -167,11 +182,13 @@ def tune_transformer(xtrain, xtest, ytrain, ytest, device):
     t1 = time.time()
 
     for n_blocks, hidden_d, n_heads, lr in sampled_combinations:
+        iteration += 1
+        print(f"Iteration #", iteration)
         print(f"Training with n_blocks={n_blocks}, hidden_d={hidden_d}, n_heads={n_heads}, lr={lr}")
         model = MyViT(chw=(1, 28, 28), n_patches=16, n_blocks=n_blocks, 
                       hidden_d=hidden_d, n_heads=n_heads, out_d=get_n_classes(ytrain)).to(device)
         summary(model)
-        trainer = Trainer(model, lr=lr, epochs=10, batch_size=64, device=device)  # Fewer epochs for faster tuning
+        trainer = Trainer(model, lr=lr, epochs=10, batch_size=64, device=device)  
 
         s1 = time.time()
         trainer.fit(xtrain, ytrain)
@@ -204,36 +221,46 @@ def tune_transformer(xtrain, xtest, ytrain, ytest, device):
 
 
 def tune_mlp(xtrain, xtest, ytrain, ytest, device):
+    print("[INFO] Tuning MLP hyperparameters...")
     hidden_layers_options = [1, 2, 3, 4, 5]
     hidden_units_options = [64, 128, 256, 512]
     lr_options = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3]
 
+    all_combinations = [(hidden_layers, hidden_units, lr) 
+                        for hidden_layers in hidden_layers_options 
+                        for hidden_units in hidden_units_options 
+                        for lr in lr_options]
+    
+
+    sampled_combinations = random.sample(all_combinations, 20) # sample 20 random combinations 
+    
     best_acc = 0
     best_params = {}
     results = []
+    iteration = 0
     t1 = time.time()
 
-    for hidden_layers in hidden_layers_options:
-        for hidden_units in hidden_units_options:
-            for lr in lr_options:
-                print(f"Training with hidden_layers={hidden_layers}, hidden_units={hidden_units}, lr={lr}")
-                model = MLP(xtrain.shape[1], get_n_classes(ytrain), hidden_units=hidden_units, hidden_layers=hidden_layers).to(device)
-                summary(model)
-                trainer = Trainer(model, lr=lr, epochs=10, batch_size=64, device=device)  # Fewer epochs for faster tuning
+    for hidden_layers, hidden_units, lr in sampled_combinations:
+        iteration += 1
+        print(f"Iteration #", iteration)
+        print(f"Training with hidden_layers={hidden_layers}, hidden_units={hidden_units}, lr={lr}")
+        model = MLP(xtrain.shape[1], get_n_classes(ytrain), hidden_units=hidden_units, hidden_layers=hidden_layers).to(device)
+        summary(model)
+        trainer = Trainer(model, lr=lr, epochs=10, batch_size=64, device=device) # using 10 epochs for faster training 
 
-                s1 = time.time()
-                trainer.fit(xtrain, ytrain)
-                preds = trainer.predict(xtest)
-                s2 = time.time()
+        s1 = time.time()
+        trainer.fit(xtrain, ytrain)
+        preds = trainer.predict(xtest)
+        s2 = time.time()
 
-                print(f"Time taken for training: {(s2 - s1) // 60} min, {(s2 - s1) % 60} sec")
+        print(f"Time taken for training: {(s2 - s1) // 60} min, {(s2 - s1) % 60} sec")
 
-                acc = accuracy_fn(preds, ytest)
-                results.append((hidden_layers, hidden_units, lr, acc))
+        acc = accuracy_fn(preds, ytest)
+        results.append((hidden_layers, hidden_units, lr, acc))
 
-                if acc > best_acc:
-                    best_acc = acc
-                    best_params = {'hidden_layers': hidden_layers, 'hidden_units': hidden_units, 'lr': lr}
+        if acc > best_acc:
+            best_acc = acc
+            best_params = {'hidden_layers': hidden_layers, 'hidden_units': hidden_units, 'lr': lr}
 
     t2 = time.time()
     print(f"Total time taken for tuning: {(t2 - t1) // 60} min, {(t2 - t1) % 60} sec")
@@ -249,7 +276,6 @@ def tune_mlp(xtrain, xtest, ytrain, ytest, device):
     plt.grid(True)
     plt.savefig('mlp_tuning.png')
     plt.show()
-
 
 
 
@@ -282,8 +308,6 @@ def main(args):
     if not args.test:
         #args.use_pca = True
         xtrain, xtest, ytrain, ytest = split_train_test(xtrain, ytrain, test_size=0.2)
-        print(f"[INFO] Data loaded: xtrain.shape = {xtrain.shape} - ytrain.shape = {ytrain.shape}")
-        print(f"[INFO] Data loaded: xtest.shape = {xtest.shape} - ytest.shape = {ytest.shape}")
 
     else:
         ytest = None
@@ -313,6 +337,8 @@ def main(args):
                 rd.shuffle(colors)
                 for i, point in enumerate(xtest_vis):
                     ax.scatter3D(point[0], point[1], point[2], color=colors[ytest[i]])
+                plt.title('PCA Visualization of Test Data')
+                plt.savefig('pca_visualization.png')
                 plt.show()
 
 
@@ -328,7 +354,8 @@ def main(args):
         if args.tune:
             tune_mlp(xtrain, xtest, ytrain, ytest, device)
             return
-        model = MLP(xtrain.shape[1], n_classes)
+        best_params = {'hidden_units': 512, 'hidden_layers': 4, 'lr': 0.0001} # using the best hyperparameters from tuning (85.442% accuracy)
+        model = MLP(xtrain.shape[1], n_classes, hidden_units=best_params['hidden_units'], hidden_layers=best_params['hidden_layers'])
 
     elif args.nn_type == "cnn":
         xtrain = xtrain.reshape(xtrain.shape[0], 1, 28, 28)
@@ -343,13 +370,16 @@ def main(args):
         if args.tune:
             tune_transformer(xtrain, xtest, ytrain, ytest, device)
             return
-        model = MyViT(chw=(1, 28, 28), n_patches=16, n_blocks=6, hidden_d=512, n_heads=8, out_d=n_classes)
+        best_params = {'n_blocks': 2, 'hidden_d': 1024, 'n_heads': 4, 'lr': 0.0001} # using the best hyperparameters from tuning (83.1% accuracy)
+        model = MyViT(chw=(1, 28, 28), n_patches=16, n_blocks=best_params['n_blocks'], 
+                  hidden_d=best_params['hidden_d'], n_heads=best_params['n_heads'], out_d=n_classes)
 
     summary(model)
     model = model.to(device)
 
     # Trainer object
-    trainer = Trainer(model, lr=args.lr, epochs=args.max_iters, batch_size=args.nn_batch_size, device=device)
+    trainer = Trainer(model, lr=best_params['lr'] if args.nn_type in ['mlp', 'vit'] else args.lr, 
+                      epochs=args.max_iters, batch_size=args.nn_batch_size, device=device)
 
     ## 4. Train and evaluate the method
 
@@ -370,9 +400,10 @@ def main(args):
         print(f"Validation set: accuracy = {acc_test:.3f}% - F1-score = {macrof1_test:.6f}")
 
     # Save predictions
-    print("\npredictions shape: \n", preds.shape)
+    print(f"[INFO] predictions shape: {preds.shape}")
     preds = preds.reshape(-1)  # Ensure predictions are of shape (N,)
     np.save("predictions.npy", preds)
+    print("[INFO] Predictions saved to 'predictions.npy'")
 
 
 if __name__ == '__main__':
