@@ -110,7 +110,7 @@ def tune_cnn(xtrain, xtest, ytrain, ytest, device):
     t1 = time.time()
 
     all_combinations = [(filters, lr, iters) for filters in filter_combinations for lr in lr_options for iters in iterations_options]
-    sampled_combinations = random.sample(all_combinations, 20)  # Sample 20 combinations
+    sampled_combinations = random.sample(all_combinations, 20)  # sample 20 random combinations
 
     for filters, lr, iters in sampled_combinations:
         iteration_nb += 1
