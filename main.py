@@ -8,13 +8,49 @@ from mpl_toolkits import mplot3d
 import random
 import random as rd
 import time
+import os
+
+from torchvision import transforms  # for data augmentation
 
 from src.data import load_data
 from src.methods.pca import PCA
 from src.methods.deep_network import MLP, CNN, Trainer, MyViT
 from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, get_n_classes
 
+# =============================================================================
+# ====================== Data augmentation for CNN ============================
+# =============================================================================
 
+# Data augmentation for CNN
+transform_train = transforms.Compose([
+     transforms.ToPILImage(),                # converts tensor or ndarray to PIL Image.
+    transforms.RandomHorizontalFlip(),       # randomly flip the image horizontally with probability 1/2
+    transforms.RandomRotation(10),           # randomly rotate image by a value between -10 and 10 degrees.
+    transforms.RandomCrop(28, padding=4),    
+    transforms.ToTensor(),                   # converts PIL Image or numpy array to tensor.
+])
+
+transform_test = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.ToTensor(),
+])
+
+def load_data_with_augmentation(data_dir, transform=None):
+    x = np.load(os.path.join(data_dir, 'train_data.npy'))
+    y = np.load(os.path.join(data_dir, 'train_label.npy'))
+    x_tensor = torch.tensor(x, dtype=torch.float32)
+    y_tensor = torch.tensor(y, dtype=torch.long)
+    
+    if transform:
+        x_augmented = torch.stack([transform(img.numpy().reshape(28, 28, 1)) for img in x_tensor])
+        return x_augmented, y_tensor.numpy()  
+    else:
+        return x_tensor, y_tensor.numpy()  
+
+# ===================================================================================================================================
+# ===================================================================================================================================
+# ===================================================================================================================================
+    
 def split_train_test(x, y, test_size=0.2, random_seed=None):
     """
     Split the data into training and testing sets.
@@ -33,6 +69,9 @@ def split_train_test(x, y, test_size=0.2, random_seed=None):
     print(f"[INFO] Data split percentages: {len(xtrain) / (len(xtrain) + len(xtest)):.2f} [train] - {len(xtest) / (len(xtrain) + len(xtest)):.2f} [test]")
     return xtrain, xtest, ytrain, ytest
 
+# ===================================================================================================================================
+# ===================================================================================================================================
+# ===================================================================================================================================
 
 def tune_pca(xtrain, xtest, ytrain, ytest, device):
     """
@@ -89,7 +128,10 @@ def tune_pca(xtrain, xtest, ytrain, ytest, device):
     plt.savefig('pca_variance.png')
     plt.show()
 
-
+# ===================================================================================================================================
+# ===================================================================================================================================
+# ===================================================================================================================================
+        
 def tune_cnn(xtrain, xtest, ytrain, ytest, device):
     print("[INFO] Tuning CNN hyperparameters...")
     filter_combinations = [(2, 4, 8), (4, 8, 16), (5, 10, 15), 
@@ -159,7 +201,10 @@ def tune_cnn(xtrain, xtest, ytrain, ytest, device):
     plt.savefig('cnn_tuning.png')
     plt.show()
 
-
+# ===================================================================================================================================
+# ===================================================================================================================================
+# ===================================================================================================================================
+        
 def tune_transformer(xtrain, xtest, ytrain, ytest, device):
     print("[INFO] Tuning Transformer hyperparameters...")
     n_blocks_options = [2, 4, 6, 8, 10]
@@ -219,7 +264,10 @@ def tune_transformer(xtrain, xtest, ytrain, ytest, device):
     plt.savefig('transformer_tuning.png')
     plt.show()
 
-
+# ===================================================================================================================================
+# ===================================================================================================================================
+# ===================================================================================================================================
+        
 def tune_mlp(xtrain, xtest, ytrain, ytest, device):
     print("[INFO] Tuning MLP hyperparameters...")
     hidden_layers_options = [1, 2, 3, 4, 5]
@@ -277,6 +325,9 @@ def tune_mlp(xtrain, xtest, ytrain, ytest, device):
     plt.savefig('mlp_tuning.png')
     plt.show()
 
+# ===================================================================================================================================
+# ===================================================================================================================================
+# ===================================================================================================================================      
 
 
 def main(args):
@@ -299,10 +350,17 @@ def main(args):
     print(f"[INFO] Using device: {device}")
 
     ## 1. First, we load our data and flatten the images into vectors
-    xtrain, xtest, ytrain = load_data(args.data)
-    xtrain = xtrain.reshape(xtrain.shape[0], -1)
-    xtest = xtest.reshape(xtest.shape[0], -1)
-    data_size = len(xtrain) + len(xtest)
+    if args.nn_type == "cnn" and args.augment_data:
+        print("[INFO] Using data augmentation for CNN")
+        x, y = load_data_with_augmentation(args.data, transform=transform_train)
+        xtrain, xtest, ytrain, ytest = split_train_test(x, y, test_size=0.2)  # Split data after augmentation
+        xtrain = xtrain.reshape(xtrain.shape[0], 1, 28, 28)
+        xtest = xtest.reshape(xtest.shape[0], 1, 28, 28)
+    else:
+        xtrain, xtest, ytrain = load_data(args.data)
+        xtrain = xtrain.reshape(xtrain.shape[0], -1)
+        xtest = xtest.reshape(xtest.shape[0], -1)
+        data_size = len(xtrain) + len(xtest)
 
     # Make a validation set
     if not args.test:
@@ -366,6 +424,7 @@ def main(args):
         best_filters = (64, 128, 256)  # using the best filter combination from tuning
         best_params = {'lr': 0.0005, 'max_iters': 20}  # using the best learning rate and max_iters from tuning (89.967% accuracy)
         model = CNN(1, n_classes, conv_layers=best_filters, dropout_prob=args.dropout_prob)
+        print(f"[INFO] CNN model initialized with dropout probability : {args.dropout_prob}")
         
     elif args.nn_type == "vit":
         if args.tune:
@@ -387,8 +446,17 @@ def main(args):
 
     ## 4. Train and evaluate the method
 
+    # ensure xtrain is a NumPy array
+    if torch.is_tensor(xtrain):
+        xtrain = xtrain.numpy()
+
     # Fit (:=train) the method on the training data
     preds_train = trainer.fit(xtrain, ytrain)
+
+    # ensure xtest is a NumPy array
+    if torch.is_tensor(xtest):
+        xtest = xtest.numpy()
+
 
     # Predict on unseen data
     preds = trainer.predict(xtest)
@@ -433,7 +501,8 @@ if __name__ == '__main__':
     # Added arguments 
     parser.add_argument('--tune', action="store_true", help="Tune hyperparameters for PCA or CNN")
     parser.add_argument('--visualize', action="store_true", help="Visualize PCA results in 3D") 
-    parser.add_argument('--dropout_prob', type=float, default=0.5, help="dropout probability for CNN")
+    parser.add_argument('--dropout_prob', type=float, default=0.30, help="dropout probability for CNN")
+    parser.add_argument('--augment_data', action="store_true", help="use data augmentation for CNN")
 
 
     args = parser.parse_args()
