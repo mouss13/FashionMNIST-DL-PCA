@@ -386,7 +386,8 @@ def main(args):
             xtest = pca_obj.reduce_dimension(xtest)
 
             if args.visualize:
-                pca_obj_vis = PCA(d=3) # reduce to 3 dimensions for visualization
+                pca_obj_vis = PCA(d=3)
+                pca_obj_vis.find_principal_components(xtrain)  # Compute principal components for visualization
                 xtrain_vis = pca_obj_vis.reduce_dimension(xtrain)
                 xtest_vis = pca_obj_vis.reduce_dimension(xtest)
                 fig = plt.figure()
@@ -407,7 +408,7 @@ def main(args):
     # Prepare the model (and data) for Pytorch
     # Note: you might need to reshape the data depending on the network you use!
     n_classes = get_n_classes(ytrain)
-
+    
     if args.nn_type == "mlp":
         if args.tune:
             tune_mlp(xtrain, xtest, ytrain, ytest, device)
