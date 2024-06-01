@@ -55,7 +55,7 @@ class CNN(nn.Module):
     It should use at least one convolutional layer.
     """
 
-    def __init__(self, input_channels, n_classes, conv_layers=[64, 128, 256], kernel_size=3):
+    def __init__(self, input_channels, n_classes, conv_layers=[64, 128, 256], kernel_size=3, dropout_prob=0.5):
         """
         Initialize the network.
         
@@ -71,6 +71,7 @@ class CNN(nn.Module):
 
         self.conv_layers = nn.ModuleList()
         self.pool = nn.MaxPool2d(2, 2)
+        self.dropout = nn.Dropout(dropout_prob)  # Dropout layer
         in_channels = input_channels
         for out_channels in conv_layers:
             self.conv_layers.append(nn.Conv2d(in_channels, out_channels, kernel_size, padding=1))
@@ -93,8 +94,11 @@ class CNN(nn.Module):
 
         for conv in self.conv_layers:
             x = self.pool(F.relu(conv(x)))
+            x = self.dropout(x)  # apply dropout after each layer
+
         x = x.view(x.size(0), -1)  # Flatten the tensor
         x = F.relu(self.fc1(x))
+        x = self.dropout(x)  # dropout after first fully connected layer
         preds = self.fc2(x)
         return preds
 

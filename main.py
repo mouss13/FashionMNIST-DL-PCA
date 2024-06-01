@@ -365,7 +365,7 @@ def main(args):
             return
         best_filters = (64, 128, 256)  # using the best filter combination from tuning
         best_params = {'lr': 0.0005, 'max_iters': 20}  # using the best learning rate and max_iters from tuning (89.967% accuracy)
-        model = CNN(1, n_classes, conv_layers=best_filters)
+        model = CNN(1, n_classes, conv_layers=best_filters, dropout_prob=args.dropout_prob)
         
     elif args.nn_type == "vit":
         if args.tune:
@@ -377,6 +377,8 @@ def main(args):
 
     summary(model)
     model = model.to(device)
+
+    t1 = time.time()
 
     # Trainer object
     trainer = Trainer(model, lr=best_params['lr'] if args.nn_type in ['mlp', 'cnn', 'vit'] else args.lr, 
@@ -390,6 +392,9 @@ def main(args):
 
     # Predict on unseen data
     preds = trainer.predict(xtest)
+
+    t2 = time.time()
+    print(f"Time taken for training: {(t2 - t1) // 60} min, {(t2 - t1) % 60} sec")
 
     ## Report results: performance on train and valid/test sets
     acc_train = accuracy_fn(preds_train, ytrain)
@@ -428,5 +433,8 @@ if __name__ == '__main__':
     # Added arguments 
     parser.add_argument('--tune', action="store_true", help="Tune hyperparameters for PCA or CNN")
     parser.add_argument('--visualize', action="store_true", help="Visualize PCA results in 3D") 
+    parser.add_argument('--dropout_prob', type=float, default=0.5, help="dropout probability for CNN")
+
+
     args = parser.parse_args()
     main(args)
