@@ -55,7 +55,7 @@ class CNN(nn.Module):
     It should use at least one convolutional layer.
     """
 
-    def __init__(self, input_channels, n_classes, conv_layers=[32, 64], kernel_size=3):
+    def __init__(self, input_channels, n_classes, conv_layers=[64, 128, 256], kernel_size=3):
         """
         Initialize the network.
         
@@ -253,7 +253,7 @@ class Trainer(object):
         # First, prepare data for pytorch   
         test_dataset = TensorDataset(torch.from_numpy(test_data).float())
         test_dataloader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
-        
+
         pred_labels = self.predict_torch(test_dataloader)
 
         # We return the labels after transforming them into numpy array.
