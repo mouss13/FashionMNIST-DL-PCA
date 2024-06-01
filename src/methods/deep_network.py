@@ -76,8 +76,6 @@ class CNN(nn.Module):
             self.conv_layers.append(nn.Conv2d(in_channels, out_channels, kernel_size, padding=1))
             in_channels = out_channels
 
-        # Calculate the size after conv and pooling layers
-        # Assuming input image size is 28x28, after two poolings (2x2) it should be 7x7
         final_conv_output_size = (28 // (2 ** len(conv_layers))) * (28 // (2 ** len(conv_layers))) * conv_layers[-1]
         self.fc1 = nn.Linear(final_conv_output_size, 256)
         self.fc2 = nn.Linear(256, n_classes)

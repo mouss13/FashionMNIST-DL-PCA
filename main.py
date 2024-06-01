@@ -364,6 +364,7 @@ def main(args):
             tune_cnn(xtrain, xtest, ytrain, ytest, device)
             return
         best_filters = (64, 128, 256)  # using the best filter combination from tuning
+        best_params = {'lr': 0.0005, 'max_iters': 20}  # using the best learning rate and max_iters from tuning (89.967% accuracy)
         model = CNN(1, n_classes, conv_layers=best_filters)
         
     elif args.nn_type == "vit":
@@ -378,8 +379,9 @@ def main(args):
     model = model.to(device)
 
     # Trainer object
-    trainer = Trainer(model, lr=best_params['lr'] if args.nn_type in ['mlp', 'vit'] else args.lr, 
-                      epochs=args.max_iters, batch_size=args.nn_batch_size, device=device)
+    trainer = Trainer(model, lr=best_params['lr'] if args.nn_type in ['mlp', 'cnn', 'vit'] else args.lr, 
+                  epochs=best_params['max_iters'] if args.nn_type == 'cnn' else args.max_iters, 
+                  batch_size=args.nn_batch_size, device=device)
 
     ## 4. Train and evaluate the method
 
