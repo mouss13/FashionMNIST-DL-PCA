@@ -356,6 +356,7 @@ def main(args):
         xtrain, xtest, ytrain, ytest = split_train_test(x, y, test_size=0.2)  # Split data after augmentation
         xtrain = xtrain.reshape(xtrain.shape[0], 1, 28, 28)
         xtest = xtest.reshape(xtest.shape[0], 1, 28, 28)
+        print(f"[INFO] Augmented training data shape: xtrain = {xtrain.shape} - ytrain = {ytrain.shape}")
     else:
         xtrain, xtest, ytrain = load_data(args.data)
         xtrain = xtrain.reshape(xtrain.shape[0], -1)
@@ -402,17 +403,17 @@ def main(args):
 
 
     ## 3. Initialize the method you want to use.
-
+    
     # Neural Networks (MS2)
 
     # Prepare the model (and data) for Pytorch
     # Note: you might need to reshape the data depending on the network you use!
     n_classes = get_n_classes(ytrain)
-    
+
     if args.nn_type == "mlp":
         if args.tune:
             tune_mlp(xtrain, xtest, ytrain, ytest, device)
-            return
+            return  
         best_params = {'hidden_units': 512, 'hidden_layers': 4, 'lr': 0.0001} # using the best hyperparameters from tuning (85.442% accuracy)
         model = MLP(xtrain.shape[1], n_classes, hidden_units=best_params['hidden_units'], hidden_layers=best_params['hidden_layers'])
 
@@ -477,9 +478,14 @@ def main(args):
 
     # Save predictions
     print(f"[INFO] predictions shape: {preds.shape}")
+    if preds.shape[0] > 10000:
+        print("[INFO] prediction size [0] exceeds 10'000 : cropping predictions...")
+        preds = preds[:10000]
+        print(f"[INFO] New predictions shape: {preds.shape}")
+
     preds = preds.reshape(-1)  # Ensure predictions are of shape (N,)
-    np.save("predictions.npy", preds)
-    print("[INFO] Predictions saved to 'predictions.npy'")
+    np.save(args.preds_file, preds)
+    print(f"[INFO] Predictions saved to '{args.preds_file}'")
 
 
 if __name__ == '__main__':
@@ -502,8 +508,9 @@ if __name__ == '__main__':
     # Added arguments 
     parser.add_argument('--tune', action="store_true", help="Tune hyperparameters for PCA or CNN")
     parser.add_argument('--visualize', action="store_true", help="Visualize PCA results in 3D") 
-    parser.add_argument('--dropout_prob', type=float, default=0.30, help="dropout probability for CNN")
+    parser.add_argument('--dropout_prob', type=float, default=0.25, help="dropout probability for CNN")
     parser.add_argument('--augment_data', action="store_true", help="use data augmentation for CNN")
+    parser.add_argument('--preds_file', type=str, default="predictions.npy", help="File in which to save predictions")
 
 
     args = parser.parse_args()
